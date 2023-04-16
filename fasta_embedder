@@ -1,0 +1,51 @@
+import torch
+import numpy as np
+import pandas as pd
+
+# assume fasta_file is the path to the input fasta file
+# assume embedding_size is the size of the embedding vectors
+
+# read in the fasta file
+with open(fasta_file, 'r') as f:
+    sequences = []
+    seq = ''
+    for line in f:
+        if line.startswith('>'):
+            sequences.append(seq)
+            seq = ''
+        else:
+            seq += line.strip()
+    sequences.append(seq)
+    sequences = sequences[1:]  # remove first empty sequence
+
+# create a dictionary that maps nucleotides to integers
+nucleotide_dict = {'A': 0, 'C': 1, 'G': 2, 'T': 3, '-': 4}
+
+# convert sequences to integer-encoded numpy arrays
+X = []
+for sequence in sequences:
+    X.append([nucleotide_dict[n] for n in sequence])
+X = np.array(X)
+
+# pad sequences to ensure equal length
+max_length = max([len(seq) for seq in sequences])
+X_padded = np.zeros((X.shape[0], max_length))
+for i, seq in enumerate(X):
+    X_padded[i, :len(seq)] = seq
+
+# convert to PyTorch tensor
+X_tensor = torch.from_numpy(X_padded).long()
+
+# create an embedding layer
+embedding = torch.nn.Embedding(input_dim=5, output_dim=embedding_size)
+
+# apply the embedding layer to the input tensor
+X_embedded = embedding(X_tensor)
+
+# flatten the embedded tensor
+X_flat = X_embedded.view(X_embedded.size(0), -1)
+
+# convert to numpy array and save to file
+X_embedding = X_flat.numpy()
+df = pd.DataFrame(X_embedding)
+df.to_csv('embeddings.csv', index=False, header=False)
