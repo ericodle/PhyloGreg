@@ -1,35 +1,49 @@
-from Bio import SeqIO
-import numpy as np
+from collections import defaultdict
 import matplotlib.pyplot as plt
 
-# Read in the FASTA file
-sequences = list(SeqIO.parse("seqfile.fasta", "fasta"))
+def parse_fasta(filename):
+    """
+    Parses a FASTA file and returns a dictionary of sequence IDs and sequences.
+    """
+    seqs = defaultdict(str)
+    with open(filename, 'r') as f:
+        current_id = ''
+        for line in f:
+            line = line.strip()
+            if line.startswith('>'):
+                current_id = line[1:]
+            else:
+                seqs[current_id] += line
+    return seqs
 
-# Calculate some descriptive statistics for each sequence
-lengths = np.array([len(seq) for seq in sequences])
-gc_content = np.array([100 * (seq.seq.count('G') + seq.seq.count('C')) / len(seq) for seq in sequences])
-num_nucleotides = np.array([seq.seq.count('A') + seq.seq.count('C') + seq.seq.count('G') + seq.seq.count('T') for seq in sequences])
+def get_stats(seqs):
+    """
+    Calculates basic statistics (length, GC content) for each sequence in the given dictionary of sequences.
+    """
+    stats = {}
+    for id, seq in seqs.items():
+        length = len(seq)
+        gc_content = (seq.count('G') + seq.count('C')) / length
+        stats[id] = (length, gc_content)
+    return stats
 
-# Create a figure with three subplots
-fig, axs = plt.subplots(1, 3, figsize=(15, 5))
+def plot_stats(stats):
+    """
+    Plots histograms of the lengths and GC contents of the given sequences.
+    """
+    lengths = [length for length, gc_content in stats.values()]
+    gc_contents = [gc_content for length, gc_content in stats.values()]
 
-# Plot a histogram of sequence lengths
-axs[0].hist(lengths, bins=50)
-axs[0].set_xlabel("Sequence Length")
-axs[0].set_ylabel("Frequency")
-axs[0].set_title("Sequence Lengths")
+    fig, axs = plt.subplots(1, 2, figsize=(10, 5))
+    axs[0].hist(lengths, bins=50)
+    axs[0].set_xlabel('Sequence Length')
+    axs[0].set_ylabel('Frequency')
+    axs[1].hist(gc_contents, bins=50)
+    axs[1].set_xlabel('GC Content')
+    axs[1].set_ylabel('Frequency')
+    plt.show()
 
-# Plot a histogram of GC content
-axs[1].hist(gc_content, bins=50)
-axs[1].set_xlabel("GC Content (%)")
-axs[1].set_ylabel("Frequency")
-axs[1].set_title("GC Content")
-
-# Plot a histogram of total nucleotide count
-axs[2].hist(num_nucleotides, bins=50)
-axs[2].set_xlabel("Total Nucleotides")
-axs[2].set_ylabel("Frequency")
-axs[2].set_title("Total Nucleotides")
-
-# Show the plot
-plt.show()
+filename = 'sequences.fasta'
+seqs = parse_fasta(filename)
+stats = get_stats(seqs)
+plot_stats(stats)
