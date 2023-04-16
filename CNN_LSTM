@@ -10,6 +10,9 @@
 
 import torch
 import torch.nn as nn
+import matplotlib.pyplot as plt
+import torch.optim as optim
+from torch.utils.data import DataLoader
 
 class PhyloNet(nn.Module):
     def __init__(self, num_classes):
@@ -60,11 +63,6 @@ class PhyloNet(nn.Module):
 
 #In this example, we've defined a CNN with three convolutional layers and a max pooling layer after each one to reduce the spatial dimensions of the output. We then reshape the output of the convolutional layers and pass it through two LSTM layers
 
-
-import torch
-import torch.nn as nn
-import torch.optim as optim
-from torch.utils.data import DataLoader
 
 def train_phylo_net(model, train_dataset, val_dataset, batch_size, lr, num_epochs):
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
