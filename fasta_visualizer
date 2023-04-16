@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # Read in the FASTA file
-sequences = list(SeqIO.parse("arb-silva.de_2023-04-16_id1249118.fasta", "fasta"))
+sequences = list(SeqIO.parse("seqfile.fasta", "fasta"))
 
 # Calculate some descriptive statistics for each sequence
 lengths = np.array([len(seq) for seq in sequences])
