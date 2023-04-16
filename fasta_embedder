@@ -49,3 +49,38 @@ X_flat = X_embedded.view(X_embedded.size(0), -1)
 X_embedding = X_flat.numpy()
 df = pd.DataFrame(X_embedding)
 df.to_csv('embeddings.csv', index=False, header=False)
+
+#When loading embeddings.csv and dividing into random train/val sets for model training.
+
+import torch
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from torch.utils.data import Dataset, DataLoader
+
+class MyDataset(Dataset):
+    def __init__(self, csv_file):
+        self.data = pd.read_csv(csv_file)
+        self.x = self.data.drop(['label'], axis=1)
+        self.y = self.data['label']
+        
+    def __len__(self):
+        return len(self.data)
+    
+    def __getitem__(self, idx):
+        x = torch.tensor(self.x.iloc[idx].values, dtype=torch.float32)
+        y = torch.tensor(self.y.iloc[idx], dtype=torch.long)
+        return x, y
+
+csv_file = 'data.csv'
+data = pd.read_csv(csv_file)
+
+# Split data into train and validation sets
+train_data, val_data = train_test_split(data, test_size=0.2, random_state=42)
+
+# Create train and validation datasets
+train_dataset = MyDataset(train_data)
+val_dataset = MyDataset(val_data)
+
+# Create train and validation dataloaders
+train_dataloader = DataLoader(train_dataset, batch_size=32, shuffle=True)
+val_dataloader = DataLoader(val_dataset, batch_size=32, shuffle=False)
