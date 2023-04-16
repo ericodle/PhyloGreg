@@ -1,0 +1,47 @@
+import csv
+
+class DNATokenizer:
+    def __init__(self):
+        self.token_to_int = {'A': 1, 'C': 2, 'G': 3, 'T': 4, '-': 0}
+        self.int_to_token = {val: key for key, val in self.token_to_int.items()}
+
+    def tokenize(self, sequence):
+        tokens = []
+        for c in sequence:
+            if c in self.token_to_int:
+                tokens.append(self.token_to_int[c])
+            else:
+                tokens.append(self.token_to_int['-'])  # replace unknown characters with gap character
+        return tokens
+
+    def detokenize(self, tokens):
+        return ''.join([self.int_to_token[t] for t in tokens])
+
+    def batch_process(self, fasta_file, output_file):
+        sequences = []
+        labels = []
+
+        with open(fasta_file) as f:
+            sequence = ''
+            for line in f:
+                if line.startswith('>'):
+                    if sequence:
+                        sequences.append(sequence)
+                        sequence = ''
+                    label = line.strip()[1:]
+                    labels.append(label)
+                else:
+                    sequence += line.strip().upper().replace('N', '-')  # replace N with gap character
+            if sequence:
+                sequences.append(sequence)
+
+        # encode sequences as integers and save to CSV file
+        with open(output_file, 'w', newline='') as f:
+            writer = csv.writer(f)
+            for i in range(len(sequences)):
+                tokens = self.tokenize(sequences[i])
+                label = labels[i]
+                writer.writerow([label] + tokens)
+
+tokenizer = DNATokenizer()
+tokenizer.batch_process(
