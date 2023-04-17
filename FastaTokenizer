@@ -1,47 +1,70 @@
-import csv
+import torch
+from torch.nn import Embedding
+import numpy as np
+from Bio import SeqIO
 
-class DNATokenizer:
-    def __init__(self):
-        self.token_to_int = {'A': 1, 'C': 2, 'G': 3, 'T': 4, '-': 0}
-        self.int_to_token = {val: key for key, val in self.token_to_int.items()}
+# Define parameters
+max_seq_len = 100  # Maximum sequence length
+embedding_dim = 50  # Embedding dimension
+batch_size = 32  # Batch size
+learning_rate = 0.001  # Learning rate
+epochs = 10  # Number of epochs
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    def tokenize(self, sequence):
-        tokens = []
-        for c in sequence:
-            if c in self.token_to_int:
-                tokens.append(self.token_to_int[c])
-            else:
-                tokens.append(self.token_to_int['-'])  # replace unknown characters with gap character
-        return tokens
+# Read FASTA file
+sequences = []
+for record in SeqIO.parse("sequences.fasta", "fasta"):
+    sequences.append(str(record.seq))
 
-    def detokenize(self, tokens):
-        return ''.join([self.int_to_token[t] for t in tokens])
+# Tokenize sequences
+tokenized_seqs = [[ord(char) for char in seq] for seq in sequences]
+padded_seqs = torch.nn.utils.rnn.pad_sequence([torch.LongTensor(seq[:max_seq_len]).to(device) for seq in tokenized_seqs],
+                                               batch_first=True)
 
-    def batch_process(self, fasta_file, output_file):
-        sequences = []
-        labels = []
+# Define embedding layer
+embedding_layer = Embedding(256, embedding_dim).to(device)
 
-        with open(fasta_file) as f:
-            sequence = ''
-            for line in f:
-                if line.startswith('>'):
-                    if sequence:
-                        sequences.append(sequence)
-                        sequence = ''
-                    label = line.strip()[1:]
-                    labels.append(label)
-                else:
-                    sequence += line.strip().upper().replace('N', '-')  # replace N with gap character
-            if sequence:
-                sequences.append(sequence)
+# Define model
+class EmbeddingModel(torch.nn.Module):
+    def __init__(self, embedding_layer):
+        super().__init__()
+        self.embedding = embedding_layer
 
-        # encode sequences as integers and save to CSV file
-        with open(output_file, 'w', newline='') as f:
-            writer = csv.writer(f)
-            for i in range(len(sequences)):
-                tokens = self.tokenize(sequences[i])
-                label = labels[i]
-                writer.writerow([label] + tokens)
+    def forward(self, x):
+        embedded = self.embedding(x)
+        return embedded
 
-tokenizer = DNATokenizer()
-tokenizer.batch_process(
+model = EmbeddingModel(embedding_layer).to(device)
+
+# Define loss function and optimizer
+criterion = torch.nn.MSELoss()
+optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+
+# Train model
+for epoch in range(epochs):
+    epoch_loss = 0
+    for i in range(0, len(padded_seqs), batch_size):
+        batch = padded_seqs[i:i+batch_size]
+        optimizer.zero_grad()
+        embeddings = model(batch)
+        loss = criterion(embeddings.sum(dim=1), torch.zeros(batch_size, embedding_dim).to(device))
+        loss.backward()
+        optimizer.step()
+        epoch_loss += loss.item()
+    print(f"Epoch {epoch+1}: Loss {epoch_loss:.5f}")
+
+# Get embeddings
+embeddings = model(padded_seqs)
+
+# Calculate distances between embeddings
+distances = np.zeros((len(sequences), len(sequences)))
+for i in range(len(sequences)):
+    for j in range(i+1, len(sequences)):
+        distances[i][j] = np.linalg.norm(embeddings[i].detach().cpu().numpy() - embeddings[j].detach().cpu().numpy())
+        distances[j][i] = distances[i][j]
+
+# Plot distances
+import matplotlib.pyplot as plt
+plt.imshow(distances, cmap='viridis')
+plt.colorbar()
+plt.show()
